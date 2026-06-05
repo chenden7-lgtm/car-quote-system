@@ -671,6 +671,30 @@ function renderQuote() {
             });
 
             container.appendChild(el);
+        // Enable price override via double‑click on the price span
+        const priceSpan = el.querySelector('.quote-item-price');
+        if (priceSpan) {
+          priceSpan.addEventListener('dblclick', () => {
+            const current = parseInt(priceSpan.textContent.replace(/[^0-9]/g, ''));
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.value = current;
+            input.style.width = '80px';
+            const commit = () => {
+              const newVal = parseInt(input.value);
+              if (!isNaN(newVal)) {
+                if (!state.customPrices[item.partId]) state.customPrices[item.partId] = {};
+                state.customPrices[item.partId][item.serviceKey] = newVal;
+                renderQuote();
+              }
+            };
+            input.addEventListener('blur', commit);
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+            priceSpan.replaceWith(input);
+            input.focus();
+          });
+        }
         });
     }
 
