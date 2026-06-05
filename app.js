@@ -756,7 +756,7 @@ function renderQuote() {
     // Calculations
     const discountAmount = Math.round(subtotal * (1 - (state.discount / 100)));
     const total = subtotal - discountAmount;
-    const vat = Math.round(total * 0.05);
+    const vat = Math.round(total * 5 / 105);
 
     // Update screen UI values
     document.getElementById('valSubtotal').textContent = `NT$ ${subtotal.toLocaleString()}`;
@@ -791,7 +791,7 @@ function saveCurrentQuote() {
     });
     const discountAmount = Math.round(subtotal * (1 - (state.discount / 100)));
     const total = subtotal - discountAmount;
-    const vat = Math.round(total * 0.05);
+    const vat = Math.round(total * 5 / 105);
 
     const record = {
         id: 'Q' + Date.now(),
@@ -971,7 +971,7 @@ function triggerPrint() {
 
     const discountAmount = Math.round(subtotal * (1 - (state.discount / 100)));
     const total = subtotal - discountAmount;
-    const vat = Math.round(total * 0.05);
+    const vat = Math.round(total * 5 / 105);
 
     let vehicleSpecName = '';
     if (state.brandType === 'tesla') {
