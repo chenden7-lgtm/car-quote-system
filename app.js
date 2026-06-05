@@ -12,6 +12,7 @@ const state = {
     selectedPartId: null,      // Database Part Key (e.g. '前保桿')
     selectedPartName: '',
     activeSelections: {},      // dbKey -> Set of serviceKeys
+    customPrices: {},          // dbKey -> serviceKey -> price (manual overrides)
     discount: 100,             // percentage, e.g., 90 for 10% off
     history: []
 };
@@ -46,7 +47,7 @@ const serviceCatalog = {
     chinaGloss: { name: '國產大陸犀牛皮（透明）', desc: '透明亮面防護漆面，高性價比防刮保護' },
     chinaMatte: { name: '國產大陸犀牛皮（消光）', desc: '啞光霧面防護漆面，高性價比質感保護' },
     importGloss: { name: '進口犀牛皮（透明）', desc: '進口頂級透明防護膜，強效自愈、超強增亮' },
-    importMatte: { name: '進口犀牛皮（消光）', desc: '進口頂級消光防護膜，極致絲綢霧面質感、防刮' }
+    importMatte: { name: '進口犀牛皮（消光）', desc: '進口頂級消光防膜，極致絲綢霧面質感、防刮' }
 };
 
 // DOM Init
@@ -420,21 +421,25 @@ function closeConfigurator() {
 }
 
 function calculatePrice(dbKey, serviceKey) {
+    if (state.customPrices[dbKey] && state.customPrices[dbKey][serviceKey] !== undefined) {
+        return state.customPrices[dbKey][serviceKey];
+    }
+    
     if (typeof pricingData === 'undefined' || !pricingData) return null;
     
     const brand = state.brandType;
     const materialData = pricingData[brand] ? pricingData[brand][serviceKey] : null;
-    if (!materialData) return null;
+    if (!materialData) return 0;
     
     const partData = materialData[dbKey];
-    if (!partData) return null;
+    if (!partData) return 0;
     
     if (brand === 'tesla') {
         const price = partData[state.vehicleClass];
-        return (price !== undefined && price !== null) ? price : null;
+        return (price !== undefined && price !== null) ? price : 0;
     } else {
         const price = partData[state.vehicleSize];
-        return (price !== undefined && price !== null) ? price : null;
+        return (price !== undefined && price !== null) ? price : 0;
     }
 }
 
@@ -448,46 +453,39 @@ function renderConfiguratorServices() {
     Object.entries(serviceCatalog).forEach(([key, info]) => {
         const price = calculatePrice(state.selectedPartId, key);
         const isActive = selectedServices.has(key);
-        const isAvailable = price !== null;
 
         const card = document.createElement('div');
-        if (!isAvailable) {
-            card.className = 'service-card disabled';
-            card.style.opacity = '0.45';
-            card.style.cursor = 'not-allowed';
-            card.style.pointerEvents = 'none'; // Prevent toggle
-            card.innerHTML = `
-                <div class="service-name" style="color: var(--text-secondary); text-decoration: line-through;">${info.name}</div>
-                <div style="font-size: 0.75rem; color: var(--accent-red); margin-top: 0.25rem; font-weight: 600;">不提供此項目施工</div>
-            `;
-        } else if (state.selectedPartId.includes('無') || state.selectedPartId.includes('不可施工')) {
-            card.className = 'service-card disabled';
-            card.style.opacity = '0.45';
-            card.style.cursor = 'not-allowed';
-            card.innerHTML = `
-                <div class="service-name">${info.name}</div>
-                <div style="font-size: 0.75rem; color: var(--accent-red); margin-top: 0.25rem;">此部位無法進行施工</div>
-            `;
-        } else {
-            card.className = `service-card ${isActive ? 'active' : ''}`;
-            if (['大燈', '尾燈'].includes(state.selectedPartId)) {
-                card.innerHTML = `
-                    <div class="service-name">${info.name}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">${info.desc}</div>
-                    <div class="service-price" style="font-weight: bold; font-size: 1rem; color: var(--primary); margin-top: 0.5rem;">實際造型報價4000~10000</div>
-                `;
-            } else {
-                card.innerHTML = `
-                    <div class="service-name">${info.name}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.25rem;">${info.desc}</div>
-                    <div class="service-price" style="font-weight: bold; font-size: 1rem; color: var(--primary); margin-top: 0.5rem;">NT$ ${price.toLocaleString()}</div>
-                `;
-            }
-            
-            card.addEventListener('click', () => {
-                toggleServiceSelection(state.selectedPartId, key);
+        card.className = `service-card ${isActive ? 'active' : ''}`;
+
+        const priceDisplay = price !== 0 ? `NT$ ${price.toLocaleString()}` : '未設定';
+        const inputVal = price !== 0 ? price : '';
+        const priceHtml = `<div class="service-price" style="font-weight: bold; font-size: 1rem; color: var(--primary); margin-top: 0.5rem;">${priceDisplay}</div>`;
+        const inputHtml = `<input type="number" class="override-price" data-key="${key}" value="${inputVal}" min="0" style="width:70px;margin-top:0.3rem;" />`;
+
+        card.innerHTML = `<div class="service-name">${info.name}</div>${priceHtml}${inputHtml}`;
+
+        const inputEl = card.querySelector('.override-price');
+        if (inputEl) {
+                        inputEl.addEventListener('click', (e) => e.stopPropagation());
+            inputEl.addEventListener('change', (e) => {
+                e.stopPropagation();
+                const newVal = parseInt(e.target.value);
+                if (!isNaN(newVal) && newVal >= 0) {
+                    if (!state.customPrices[state.selectedPartId]) state.customPrices[state.selectedPartId] = {};
+                    state.customPrices[state.selectedPartId][key] = newVal;
+                    // Update displayed price in this card
+                    const priceDiv = card.querySelector('.service-price');
+                    if (priceDiv) {
+                        priceDiv.textContent = `NT$ ${newVal.toLocaleString()}`;
+                    }
+                    renderQuote();
+                }
             });
         }
+            
+        card.addEventListener('click', () => {
+            toggleServiceSelection(state.selectedPartId, key);
+        });
 
         servicesGrid.appendChild(card);
     });
@@ -701,6 +699,7 @@ function saveCurrentQuote() {
         return;
     }
 
+    // Calculate subtotal, discount, total, and VAT for saving
     let subtotal = 0;
     Object.entries(state.activeSelections).forEach(([partId, serviceSet]) => {
         serviceSet.forEach(key => {
@@ -710,6 +709,7 @@ function saveCurrentQuote() {
     });
     const discountAmount = Math.round(subtotal * (1 - (state.discount / 100)));
     const total = subtotal - discountAmount;
+    const vat = Math.round(total * 0.05);
 
     const record = {
         id: 'Q' + Date.now(),
@@ -725,6 +725,9 @@ function saveCurrentQuote() {
         vehicleSize: state.vehicleSize,
         activeSelections: serializeSelections(state.activeSelections),
         discount: state.discount,
+        subtotal: subtotal,
+        discountAmount: discountAmount,
+        vat: vat,
         total: total
     };
 
