@@ -9,6 +9,7 @@ const state = {
     customerPhone: '',
     plateNumber: '',
     brandModel: '',
+    usedMaterial: '',
     selectedPartId: null,      // Database Part Key (e.g. '前保桿')
     selectedPartName: '',
     activeSelections: {},      // dbKey -> Set of serviceKeys
@@ -244,7 +245,7 @@ function setupEventListeners() {
     }
 
     // Customer Info Inputs
-    const inputs = ['customerName', 'customerPhone', 'plateNumber', 'brandModel'];
+    const inputs = ['customerName', 'customerPhone', 'plateNumber', 'brandModel', 'usedMaterial'];
     inputs.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -604,12 +605,14 @@ function clearQuote() {
     document.getElementById('customerPhone').value = '';
     document.getElementById('plateNumber').value = '';
     document.getElementById('brandModel').value = '';
+    document.getElementById('usedMaterial').value = '';
     document.getElementById('discountInput').value = '100';
     
     state.customerName = '';
     state.customerPhone = '';
     state.plateNumber = '';
     state.brandModel = '';
+    state.usedMaterial = '';
     state.discount = 100;
 
     document.getElementById('brandType').value = 'others';
@@ -797,6 +800,7 @@ function saveCurrentQuote() {
         customerPhone: state.customerPhone || '無聯絡電話',
         plateNumber: state.plateNumber || '無車牌',
         brandModel: state.brandModel || '未填車型',
+        usedMaterial: state.usedMaterial || '',
         brandType: state.brandType,
         vehicleClass: state.vehicleClass,
         vehicleType: state.vehicleType,
@@ -878,6 +882,7 @@ function loadQuoteRecord(record) {
         state.customerPhone = record.customerPhone;
         state.plateNumber = record.plateNumber;
         state.brandModel = record.brandModel;
+        state.usedMaterial = record.usedMaterial || '';
         state.brandType = record.brandType || 'others';
         state.vehicleClass = record.vehicleClass || 'Model Y';
         state.vehicleType = record.vehicleType || 'sedan';
@@ -889,6 +894,7 @@ function loadQuoteRecord(record) {
         document.getElementById('customerPhone').value = record.customerPhone === '無聯絡電話' ? '' : record.customerPhone;
         document.getElementById('plateNumber').value = record.plateNumber === '無車牌' ? '' : record.plateNumber;
         document.getElementById('brandModel').value = record.brandModel === '未填車型' ? '' : record.brandModel;
+        document.getElementById('usedMaterial').value = record.usedMaterial || '';
         document.getElementById('discountInput').value = record.discount || 100;
 
         const brandTypeSelect = document.getElementById('brandType');
@@ -979,14 +985,12 @@ function triggerPrint() {
     const dateStr = new Date().toLocaleString('zh-TW', { hour12: false, dateStyle: 'long', timeStyle: 'short' });
 
     printArea.innerHTML = `
-        <div class="print-invoice-header">
-            <div>
-                <div class="print-logo">好室多膜局部施工查價報價</div>
-                <div style="font-size: 9pt; color: #718096; margin-top: 5px;">專業車身貼膜、犀牛皮防護、個性改色施工報價</div>
-            </div>
-            <div>
-                <div class="print-title">局部貼膜施工估價單</div>
-                <div style="font-size: 10pt; text-align: right; color: #4a5568; margin-top: 5px;">報價日期: ${dateStr}</div>
+        <div class="print-invoice-header" style="display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 25px;">
+            <div style="font-size: 22pt; font-weight: bold; color: #1a365d; letter-spacing: 2px;">好室多膜 - 局部貼膜施工估價單</div>
+            <div style="font-size: 9.5pt; color: #4a5568; margin-top: 6px; display: flex; gap: 20px; justify-content: center;">
+                <span>專業車身貼膜、犀牛皮防護、個性改色施工報價</span>
+                <span>•</span>
+                <span>報價日期: ${dateStr}</span>
             </div>
         </div>
 
@@ -1007,7 +1011,7 @@ function triggerPrint() {
                 </div>
             </div>
             <div class="print-meta-box">
-                <div class="print-meta-title">車輛規格</div>
+                <div class="print-meta-title">車輛與施工資訊</div>
                 <div class="print-meta-row">
                     <span class="print-meta-label">廠牌車型:</span>
                     <span>${state.brandModel || '未填寫'}</span>
@@ -1015,6 +1019,10 @@ function triggerPrint() {
                 <div class="print-meta-row">
                     <span class="print-meta-label">車型分類:</span>
                     <span>${vehicleSpecName}</span>
+                </div>
+                <div class="print-meta-row">
+                    <span class="print-meta-label">使用膜料:</span>
+                    <span>${state.usedMaterial || '未填寫'}</span>
                 </div>
             </div>
         </div>
