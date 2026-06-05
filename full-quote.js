@@ -10,19 +10,35 @@ const state = {
     plateNumber: '',
     brandModel: '',
     usedMaterial: '',
-    material: 'axColor',       // 'axColor', 'threeMColor', 'chinaGloss', 'chinaMatte', 'importGloss', 'importMatte'
+    material: 'axE',           // default: axE
+    addonPixel8bit: false,     // checkbox status
     discount: 100,             // percentage, e.g., 90 for 10% off
+    customPackagePrice: null,  // user override for package price
+    customAddonPrice: null,    // user override for addon price
     activeSelections: {},      // dbKey -> { checked: boolean, qty: number, customPrice: number | null }
     history: []
 };
 
 const serviceCatalog = {
-    axColor: { name: 'AX改色膜', desc: 'AX品牌改色膜，色彩飽滿，完美收邊' },
-    threeMColor: { name: '3M改色膜', desc: '3M高品質改色膜，質地優良，耐久性強' },
-    chinaGloss: { name: '國產大陸犀牛皮（透明）', desc: '透明亮面防護漆面，高性價比防刮保護' },
-    chinaMatte: { name: '國產大陸犀牛皮（消光）', desc: '啞光霧面防護漆面，高性價比質感保護' },
-    importGloss: { name: '進口犀牛皮（透明）', desc: '進口頂級透明防護膜，強效自愈、超強增亮' },
-    importMatte: { name: '進口犀牛皮（消光）', desc: '進口頂級消光防膜，極致絲綢霧面質感、防刮' }
+    axE: { name: 'AX改色膜 - E系列 (基本色)', desc: 'AX品牌基本色系E系列改色膜，完美包邊' },
+    axV: { name: 'AX改色膜 - V系列 (特殊一階)', desc: 'AX特殊色系一階V系列改色膜' },
+    axG: { name: 'AX改色膜 - G系列 (特殊二階)', desc: 'AX特殊色系二階G系列改色膜' },
+    axT: { name: 'AX改色膜 - T系列 (特殊三階)', desc: 'AX特殊色系三階T系列改色膜' },
+    threeMGMS: { name: '3M 2080 - G/M/S系列 (基本色)', desc: '3M 2080高品質基本色系改色膜' },
+    threeMGP: { name: '3M 2080 - GP/SP系列 (特殊一階)', desc: '3M 2080特殊色系一階改色膜' },
+    threeMHG: { name: '3M 2080 - HG系列 (特殊二階)', desc: '3M 2080特殊色系二階改色膜' },
+    pixel8bit: { name: '車頭加強犀牛皮防護 - 國產 pixel8bit', desc: '常跑高速車頭加強犀牛皮保護（引擎蓋、前葉子版）' }
+};
+
+const packagePrices = {
+    axE: { S: 60000, M: 65000, L: 70000, XL: 75000, '2XL': 80000 },
+    axV: { S: 63000, M: 68000, L: 73000, XL: 78000, '2XL': 83000 },
+    axG: { S: 65000, M: 70000, L: 75000, XL: 80000, '2XL': 85000 },
+    axT: { S: 68000, M: 73000, L: 78000, XL: 83000, '2XL': 88000 },
+    threeMGMS: { S: 70000, M: 75000, L: 80000, XL: 85000, '2XL': 90000 },
+    threeMGP: { S: 75000, M: 80000, L: 85000, XL: 90000, '2XL': 95000 },
+    threeMHG: { S: 80000, M: 85000, L: 90000, XL: 95000, '2XL': 100000 },
+    pixel8bit: { S: 18000, M: 18000, L: 18000, XL: 18000, '2XL': 18000 }
 };
 
 // Default quantities for each part key
@@ -77,55 +93,51 @@ function saveHistoryToStorage() {
     localStorage.setItem('car_quote_history', JSON.stringify(state.history));
 }
 
-function getDbPrice(dbKey) {
-    if (typeof pricingData === 'undefined' || !pricingData) return 0;
-    
-    const brand = state.brandType;
-    const materialData = pricingData[brand] ? pricingData[brand][state.material] : null;
-    if (!materialData) return 0;
-    
-    const partData = materialData[dbKey];
-    if (!partData) return 0;
-    
-    if (brand === 'tesla') {
-        const price = partData[state.vehicleClass];
-        return (price !== undefined && price !== null) ? price : 0;
-    } else {
-        const price = partData[state.vehicleSize];
-        return (price !== undefined && price !== null) ? price : 0;
+function getTeslaSize(model) {
+    switch (model) {
+        case 'Model 3': return 'M';
+        case 'Model Y': return 'L';
+        case '新款Model Y': return 'L';
+        case 'Model S': return 'XL';
+        case 'Model X': return '2XL';
+        default: return 'L';
     }
 }
 
+function getActiveSize() {
+    return state.brandType === 'tesla' ? getTeslaSize(state.vehicleClass) : (state.vehicleSize === '其他' ? 'L' : state.vehicleSize);
+}
+
+function getPackageBasePrice() {
+    const size = getActiveSize();
+    const mat = state.material;
+    if (packagePrices[mat]) {
+        return packagePrices[mat][size] || 0;
+    }
+    return 0;
+}
+
 function getIncludedPartsList() {
-    if (typeof pricingData === 'undefined' || !pricingData) return [];
-    
     const brand = state.brandType;
-    const materialData = pricingData[brand] ? pricingData[brand][state.material] : null;
-    if (!materialData) return [];
     
-    const allKeys = Object.keys(materialData);
+    // For our new packages, if selected material is pixel8bit, the parts list should only contain: "引擎蓋", "前葉子版"
+    if (state.material === 'pixel8bit') {
+        return ["引擎蓋", "前葉子版"];
+    }
     
+    // For other AX/3M packages, list all standard parts:
+    const generalParts = ["前保桿", "引擎蓋", "前葉子版", "前門", "後門", "尾箱上", "尾箱下", "尾翼", "後保桿", "手把（單支）", "後照鏡（單邊）"];
     if (brand === 'tesla') {
-        // Filter parts that have a valid price for the selected model
-        return allKeys.filter(k => {
-            const price = materialData[k][state.vehicleClass];
-            return price !== undefined && price !== null && price !== 0;
-        });
+        if (state.vehicleClass === 'Model X' || state.vehicleClass === 'Model S') {
+            return [...generalParts, "AC連接後葉"];
+        }
+        return [...generalParts, "AC連接後葉、側裙"];
     } else {
-        // Filter parts based on others vehicle method
-        return allKeys.filter(k => {
-            // General parts always included
-            const generalParts = ["前保桿", "引擎蓋", "前葉子版", "前門", "後門", "尾箱上", "尾箱下", "尾翼", "後保桿", "手把（單支）", "後照鏡（單邊）"];
-            if (generalParts.includes(k)) return true;
-            
-            // Method specific parts
-            if (state.vehicleMethod === 'ac') {
-                return k === "AC連接後葉" || k === "側裙";
-            } else if (state.vehicleMethod === 'ac_skirt') {
-                return k === "AC連接後葉、側裙";
-            }
-            return false;
-        });
+        if (state.vehicleMethod === 'ac') {
+            return [...generalParts, "AC連接後葉", "側裙"];
+        } else {
+            return [...generalParts, "AC連接後葉、側裙"];
+        }
     }
 }
 
@@ -165,9 +177,6 @@ function renderPartsTable() {
     
     includedParts.forEach(partKey => {
         const selection = state.activeSelections[partKey] || { checked: true, qty: 1, customPrice: null };
-        const basePrice = getDbPrice(partKey);
-        const currentPrice = selection.customPrice !== null ? selection.customPrice : basePrice;
-        const total = currentPrice * selection.qty;
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -175,67 +184,19 @@ function renderPartsTable() {
                 <input type="checkbox" class="part-checkbox" data-part="${partKey}" ${selection.checked ? 'checked' : ''}>
             </td>
             <td><strong>${partKey}</strong></td>
-            <td class="part-price-cell">
-                <span class="price-display" data-part="${partKey}" style="cursor: pointer; border-bottom: 1px dashed var(--primary);" title="雙擊可修改單價">
-                    NT$ ${currentPrice.toLocaleString()}
-                </span>
-            </td>
-            <td style="text-align: center;">
-                <input type="number" class="qty-input" data-part="${partKey}" value="${selection.qty}" min="0">
-            </td>
-            <td class="part-price-cell" style="text-align: right; font-weight: bold; color: var(--primary);">
-                NT$ ${total.toLocaleString()}
+            <td colspan="3" class="part-price-cell" style="color: var(--text-secondary); font-style: italic;">
+                ${selection.checked ? '已包含在施工方案中' : '不施作'}
             </td>
         `;
         
         // Checkbox listener
         tr.querySelector('.part-checkbox').addEventListener('change', (e) => {
+            if (!state.activeSelections[partKey]) {
+                state.activeSelections[partKey] = { checked: true, qty: 1, customPrice: null };
+            }
             state.activeSelections[partKey].checked = e.target.checked;
             renderPartsTable();
             renderQuote();
-        });
-        
-        // Qty input listener
-        tr.querySelector('.qty-input').addEventListener('change', (e) => {
-            let val = parseInt(e.target.value);
-            if (isNaN(val) || val < 0) val = 0;
-            state.activeSelections[partKey].qty = val;
-            renderPartsTable();
-            renderQuote();
-        });
-        
-        // Double click price edit listener
-        const priceDisplay = tr.querySelector('.price-display');
-        priceDisplay.addEventListener('dblclick', () => {
-            const currentVal = currentPrice;
-            const input = document.createElement('input');
-            input.type = 'number';
-            input.min = '0';
-            input.value = currentVal;
-            input.style.width = '100px';
-            input.className = 'qty-input';
-            
-            const commit = () => {
-                const newVal = parseInt(input.value);
-                if (!isNaN(newVal) && newVal >= 0) {
-                    state.activeSelections[partKey].customPrice = newVal;
-                } else {
-                    state.activeSelections[partKey].customPrice = null;
-                }
-                renderPartsTable();
-                renderQuote();
-            };
-            
-            input.addEventListener('blur', commit);
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    commit();
-                }
-            });
-            
-            priceDisplay.replaceWith(input);
-            input.focus();
         });
         
         tbody.appendChild(tr);
@@ -250,26 +211,74 @@ function renderQuote() {
     let subtotal = 0;
     let itemsCount = 0;
     
-    Object.entries(state.activeSelections).forEach(([partKey, selection]) => {
-        if (!selection.checked || selection.qty === 0) return;
+    // 1. Base Full Car Package Item
+    const basePrice = getPackageBasePrice();
+    const pkgPrice = state.customPackagePrice !== null ? state.customPackagePrice : basePrice;
+    subtotal += pkgPrice;
+    itemsCount++;
+    
+    const pkgEl = document.createElement('div');
+    pkgEl.className = 'quote-item';
+    pkgEl.innerHTML = `
+        <div class="quote-item-info">
+            <div class="quote-item-part">全車貼膜施工 (${getActiveSize()} 尺寸)</div>
+            <div class="quote-item-service">${serviceCatalog[state.material].name}</div>
+        </div>
+        <div class="quote-item-price-wrapper">
+            <span class="quote-item-price" style="cursor: pointer; border-bottom: 1px dashed var(--primary);" title="雙擊可修改此方案報價">NT$ ${pkgPrice.toLocaleString()}</span>
+        </div>
+    `;
+    
+    // Double click to override package price
+    const pkgPriceSpan = pkgEl.querySelector('.quote-item-price');
+    pkgPriceSpan.addEventListener('dblclick', () => {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.value = pkgPrice;
+        input.style.width = '90px';
         
-        const basePrice = getDbPrice(partKey);
-        const price = selection.customPrice !== null ? selection.customPrice : basePrice;
-        const partTotal = price * selection.qty;
+        const commit = () => {
+            const newVal = parseInt(input.value);
+            if (!isNaN(newVal) && newVal >= 0) {
+                state.customPackagePrice = newVal;
+            } else {
+                state.customPackagePrice = null;
+            }
+            renderQuote();
+        };
         
-        subtotal += partTotal;
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                commit();
+            }
+        });
+        
+        pkgPriceSpan.innerHTML = '';
+        pkgPriceSpan.appendChild(input);
+        input.focus();
+    });
+    
+    container.appendChild(pkgEl);
+    
+    // 2. Add-on Item (if checked and material is not pixel8bit)
+    if (state.material !== 'pixel8bit' && state.addonPixel8bit) {
+        const addonPrice = state.customAddonPrice !== null ? state.customAddonPrice : 18000;
+        subtotal += addonPrice;
         itemsCount++;
         
-        const el = document.createElement('div');
-        el.className = 'quote-item';
-        el.innerHTML = `
+        const addonEl = document.createElement('div');
+        addonEl.className = 'quote-item';
+        addonEl.innerHTML = `
             <div class="quote-item-info">
-                <div class="quote-item-part">${partKey} (x${selection.qty})</div>
-                <div class="quote-item-service">${serviceCatalog[state.material].name}</div>
+                <div class="quote-item-part">加購車頭加強犀牛皮防護</div>
+                <div class="quote-item-service">國產 pixel8bit (加強部位：引擎蓋、前葉子版)</div>
             </div>
             <div class="quote-item-price-wrapper">
-                <span class="quote-item-price">NT$ ${partTotal.toLocaleString()}</span>
-                <button class="quote-item-delete" title="排除此部位">
+                <span class="quote-item-price" style="cursor: pointer; border-bottom: 1px dashed var(--primary);" title="雙擊可修改加購報價">NT$ ${addonPrice.toLocaleString()}</span>
+                <button class="quote-item-delete" title="取消此加購">
                     <svg viewBox="0 0 24 24">
                         <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                     </svg>
@@ -277,29 +286,28 @@ function renderQuote() {
             </div>
         `;
         
-        el.querySelector('.quote-item-delete').addEventListener('click', () => {
-            state.activeSelections[partKey].checked = false;
-            renderPartsTable();
+        addonEl.querySelector('.quote-item-delete').addEventListener('click', () => {
+            state.addonPixel8bit = false;
+            const addonCheckbox = document.getElementById('addonPixel8bit');
+            if (addonCheckbox) addonCheckbox.checked = false;
             renderQuote();
         });
         
-        // Enable double click price edit in the sidebar quote list too!
-        const quoteItemPriceSpan = el.querySelector('.quote-item-price');
-        quoteItemPriceSpan.addEventListener('dblclick', () => {
+        const addonPriceSpan = addonEl.querySelector('.quote-item-price');
+        addonPriceSpan.addEventListener('dblclick', () => {
             const input = document.createElement('input');
             input.type = 'number';
             input.min = '0';
-            input.value = price; // edit single item price
+            input.value = addonPrice;
             input.style.width = '90px';
             
             const commit = () => {
                 const newVal = parseInt(input.value);
                 if (!isNaN(newVal) && newVal >= 0) {
-                    state.activeSelections[partKey].customPrice = newVal;
+                    state.customAddonPrice = newVal;
                 } else {
-                    state.activeSelections[partKey].customPrice = null;
+                    state.customAddonPrice = null;
                 }
-                renderPartsTable();
                 renderQuote();
             };
             
@@ -311,22 +319,12 @@ function renderQuote() {
                 }
             });
             
-            quoteItemPriceSpan.replaceWith(input);
+            addonPriceSpan.innerHTML = '';
+            addonPriceSpan.appendChild(input);
             input.focus();
         });
         
-        container.appendChild(el);
-    });
-    
-    if (itemsCount === 0) {
-        container.innerHTML = `
-            <div class="empty-quote-state">
-                <svg viewBox="0 0 24 24">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2zm0 8H7v-2h10v2z"/>
-                </svg>
-                <span>尚未選取或載入施工部位</span>
-            </div>
-        `;
+        container.appendChild(addonEl);
     }
     
     // Calculations
@@ -443,7 +441,33 @@ function setupEventListeners() {
     if (materialSelect) {
         materialSelect.addEventListener('change', (e) => {
             state.material = e.target.value;
+            
+            const addonContainer = document.getElementById('addonPixel8bitContainer');
+            if (addonContainer) {
+                if (state.material === 'pixel8bit') {
+                    addonContainer.style.display = 'none';
+                    state.addonPixel8bit = false;
+                    const addonCheckbox = document.getElementById('addonPixel8bit');
+                    if (addonCheckbox) addonCheckbox.checked = false;
+                } else {
+                    addonContainer.style.display = 'block';
+                }
+            }
+            
+            // Reset custom overrides when switching packages to avoid carrying over incorrect custom prices
+            state.customPackagePrice = null;
+            state.customAddonPrice = null;
+
             resetSelectionsForCurrentVehicle();
+            renderQuote();
+        });
+    }
+
+    // Addon Checkbox Listener
+    const addonCheckbox = document.getElementById('addonPixel8bit');
+    if (addonCheckbox) {
+        addonCheckbox.addEventListener('change', (e) => {
+            state.addonPixel8bit = e.target.checked;
             renderQuote();
         });
     }
@@ -491,7 +515,10 @@ function clearQuote() {
     state.brandModel = '';
     state.usedMaterial = '';
     state.discount = 100;
-    state.material = 'axColor';
+    state.material = 'axE';
+    state.addonPixel8bit = false;
+    state.customPackagePrice = null;
+    state.customAddonPrice = null;
     
     document.getElementById('customerName').value = '';
     document.getElementById('customerPhone').value = '';
@@ -499,7 +526,13 @@ function clearQuote() {
     document.getElementById('brandModel').value = '';
     document.getElementById('usedMaterial').value = '';
     document.getElementById('discountInput').value = '100';
-    document.getElementById('materialSelect').value = 'axColor';
+    document.getElementById('materialSelect').value = 'axE';
+    
+    const addonCheckbox = document.getElementById('addonPixel8bit');
+    if (addonCheckbox) addonCheckbox.checked = false;
+    
+    const addonContainer = document.getElementById('addonPixel8bitContainer');
+    if (addonContainer) addonContainer.style.display = 'block';
 
     state.brandType = 'others';
     state.vehicleClass = 'Model Y';
@@ -537,21 +570,15 @@ function serializeSelections(selections) {
 }
 
 function saveCurrentQuote() {
-    let activeItemsCount = 0;
-    let subtotal = 0;
+    // 1. Base Full Car Package Item
+    const basePrice = getPackageBasePrice();
+    const pkgPrice = state.customPackagePrice !== null ? state.customPackagePrice : basePrice;
+    let subtotal = pkgPrice;
     
-    Object.entries(state.activeSelections).forEach(([partKey, selection]) => {
-        if (selection.checked && selection.qty > 0) {
-            activeItemsCount++;
-            const basePrice = getDbPrice(partKey);
-            const price = selection.customPrice !== null ? selection.customPrice : basePrice;
-            subtotal += price * selection.qty;
-        }
-    });
-
-    if (activeItemsCount === 0) {
-        alert('請先選取施工部位，新增報價項目後再進行儲存。');
-        return;
+    // 2. Add-on Item (if checked and material is not pixel8bit)
+    if (state.material !== 'pixel8bit' && state.addonPixel8bit) {
+        const addonPrice = state.customAddonPrice !== null ? state.customAddonPrice : 18000;
+        subtotal += addonPrice;
     }
 
     const discountAmount = Math.round(subtotal * (1 - (state.discount / 100)));
@@ -572,6 +599,9 @@ function saveCurrentQuote() {
         vehicleMethod: state.vehicleMethod,
         vehicleSize: state.vehicleSize,
         material: state.material,
+        addonPixel8bit: state.addonPixel8bit,
+        customPackagePrice: state.customPackagePrice,
+        customAddonPrice: state.customAddonPrice,
         isFullQuote: true,
         activeSelections: serializeSelections(state.activeSelections),
         discount: state.discount,
@@ -638,7 +668,17 @@ function loadQuoteRecord(record) {
         state.vehicleMethod = record.vehicleMethod || 'ac';
         state.vehicleSize = record.vehicleSize || 'S';
         state.discount = record.discount || 100;
-        state.material = record.material || 'axColor';
+        
+        // Map old generic materials to new package names
+        let savedMat = record.material || 'axE';
+        if (savedMat === 'axColor') savedMat = 'axE';
+        if (savedMat === 'threeMColor') savedMat = 'threeMGMS';
+        if (['chinaGloss', 'chinaMatte', 'importGloss', 'importMatte'].includes(savedMat)) savedMat = 'pixel8bit';
+        state.material = savedMat;
+
+        state.addonPixel8bit = record.addonPixel8bit || false;
+        state.customPackagePrice = record.customPackagePrice !== undefined ? record.customPackagePrice : null;
+        state.customAddonPrice = record.customAddonPrice !== undefined ? record.customAddonPrice : null;
         
         document.getElementById('customerName').value = record.customerName === '未填寫客戶' ? '' : record.customerName;
         document.getElementById('customerPhone').value = record.customerPhone === '無聯絡電話' ? '' : record.customerPhone;
@@ -647,6 +687,14 @@ function loadQuoteRecord(record) {
         document.getElementById('usedMaterial').value = record.usedMaterial || '';
         document.getElementById('discountInput').value = record.discount || 100;
         document.getElementById('materialSelect').value = state.material;
+
+        const addonCheckbox = document.getElementById('addonPixel8bit');
+        if (addonCheckbox) addonCheckbox.checked = state.addonPixel8bit;
+
+        const addonContainer = document.getElementById('addonPixel8bitContainer');
+        if (addonContainer) {
+            addonContainer.style.display = state.material === 'pixel8bit' ? 'none' : 'block';
+        }
 
         const brandTypeSelect = document.getElementById('brandType');
         const subGroupTesla = document.getElementById('subGroupTesla');
@@ -715,27 +763,33 @@ function triggerPrint() {
     let subtotal = 0;
     const itemsRows = [];
 
-    Object.entries(state.activeSelections).forEach(([partKey, selection]) => {
-        if (!selection.checked || selection.qty === 0) return;
+    // 1. Base Full Car Package Item
+    const basePrice = getPackageBasePrice();
+    const pkgPrice = state.customPackagePrice !== null ? state.customPackagePrice : basePrice;
+    subtotal += pkgPrice;
+    
+    itemsRows.push(`
+        <tr>
+            <td><strong>全車貼膜施工 (${getActiveSize()} 尺寸)</strong></td>
+            <td>${serviceCatalog[state.material].name}</td>
+            <td>1</td>
+            <td style="text-align: right;">NT$ ${pkgPrice.toLocaleString()}</td>
+        </tr>
+    `);
+    
+    // 2. Add-on Item (if checked and material is not pixel8bit)
+    if (state.material !== 'pixel8bit' && state.addonPixel8bit) {
+        const addonPrice = state.customAddonPrice !== null ? state.customAddonPrice : 18000;
+        subtotal += addonPrice;
         
-        const basePrice = getDbPrice(partKey);
-        const price = selection.customPrice !== null ? selection.customPrice : basePrice;
-        const partTotal = price * selection.qty;
-        subtotal += partTotal;
-
         itemsRows.push(`
             <tr>
-                <td><strong>${partKey}</strong></td>
-                <td>${serviceCatalog[state.material].name}</td>
-                <td>${selection.qty}</td>
-                <td style="text-align: right;">NT$ ${partTotal.toLocaleString()}</td>
+                <td><strong>加購車頭加強犀牛皮防護</strong></td>
+                <td>國產 pixel8bit (加強部位：引擎蓋、前葉子版)</td>
+                <td>1</td>
+                <td style="text-align: right;">NT$ ${addonPrice.toLocaleString()}</td>
             </tr>
         `);
-    });
-
-    if (itemsRows.length === 0) {
-        alert('請先選取施工部位，新增報價項目後再進行列印。');
-        return;
     }
 
     const discountAmount = Math.round(subtotal * (1 - (state.discount / 100)));
@@ -751,6 +805,11 @@ function triggerPrint() {
         vehicleSpecName = `其他品牌 (${typeNames[state.vehicleType] || state.vehicleType}) - ${methodNames[state.vehicleMethod]} - 尺寸: ${state.vehicleSize}`;
     }
     
+    // Generate list of active wrapped parts
+    const includedParts = getIncludedPartsList();
+    const checkedParts = includedParts.filter(p => state.activeSelections[p] && state.activeSelections[p].checked);
+    const partsListStr = checkedParts.length > 0 ? checkedParts.join('、') : '無選取部位';
+
     const dateStr = new Date().toLocaleString('zh-TW', { hour12: false, dateStyle: 'long', timeStyle: 'short' });
 
     printArea.innerHTML = `
@@ -799,8 +858,8 @@ function triggerPrint() {
         <table class="print-table">
             <thead>
                 <tr>
-                    <th>施工部位</th>
-                    <th>貼膜材質項目</th>
+                    <th>施工項目</th>
+                    <th>貼膜方案材質</th>
                     <th>數量</th>
                     <th style="text-align: right;">金額 (NTD)</th>
                 </tr>
@@ -809,6 +868,10 @@ function triggerPrint() {
                 ${itemsRows.join('')}
             </tbody>
         </table>
+        
+        <div style="font-size: 8.5pt; color: #4a5568; margin: -5px 0 20px 0; border: 1px dashed #cbd5e0; padding: 8px 10px; border-radius: 4px; line-height: 1.45;">
+            <strong>方案施作範圍明細：</strong>${partsListStr}
+        </div>
 
         <div class="print-total-box">
             <div class="print-total-row">
