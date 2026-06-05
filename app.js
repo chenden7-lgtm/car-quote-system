@@ -13,6 +13,7 @@ const state = {
     selectedPartName: '',
     activeSelections: {},      // dbKey -> Set of serviceKeys
     customPrices: {},          // dbKey -> serviceKey -> price (manual overrides)
+    customQuantities: {},      // dbKey -> serviceKey -> quantity (manual overrides)
     discount: 100,             // percentage, e.g., 90 for 10% off
     history: []
 };
@@ -420,6 +421,35 @@ function closeConfigurator() {
     }
 }
 
+function getServiceQuantity(dbKey, serviceKey) {
+    if (state.customQuantities[dbKey] && state.customQuantities[dbKey][serviceKey] !== undefined) {
+        return state.customQuantities[dbKey][serviceKey];
+    }
+    // Default quantities based on part key
+    const defaults = {
+        "前保桿": 1,
+        "引擎蓋": 1,
+        "前葉子版": 2,
+        "前門": 2,
+        "後門": 2,
+        "AC": 1,
+        "後葉": 2,
+        "後葉（連著側裙）": 2,
+        "尾箱上": 1,
+        "尾箱上左右（單邊）": 2,
+        "尾箱下": 1,
+        "尾翼": 1,
+        "後保桿": 1,
+        "手把（單支）": 4,
+        "後照鏡（單邊）": 2,
+        "AC連接後葉": 1,
+        "AC連接後葉、側裙": 1,
+        "側裙": 2,
+        "AC(不含後葉)": 1
+    };
+    return defaults[dbKey] || 1;
+}
+
 function calculatePrice(dbKey, serviceKey) {
     if (state.customPrices[dbKey] && state.customPrices[dbKey][serviceKey] !== undefined) {
         return state.customPrices[dbKey][serviceKey];
@@ -565,6 +595,8 @@ function setupSvgHoverEffects() {
 
 function clearQuote() {
     state.activeSelections = {};
+    state.customPrices = {};
+    state.customQuantities = {};
     state.selectedPartId = null;
     state.selectedPartName = '';
     
@@ -624,8 +656,9 @@ function renderQuote() {
         servicesSet.forEach(serviceKey => {
             const price = calculatePrice(partId, serviceKey);
             if (price === null) return;
+            const qty = getServiceQuantity(partId, serviceKey);
             
-            subtotal += price;
+            subtotal += price * qty;
             itemsCount++;
             
             flatItemsList.push({
@@ -633,7 +666,8 @@ function renderQuote() {
                 partName: partId, // DB key is already the Chinese part name
                 serviceKey,
                 serviceName: serviceCatalog[serviceKey].name,
-                price
+                price,
+                qty
             });
         });
     });
@@ -655,9 +689,14 @@ function renderQuote() {
                 <div class="quote-item-info">
                     <div class="quote-item-part">${item.partName}</div>
                     <div class="quote-item-service">${item.serviceName}</div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-secondary);">單價: NT$ ${item.price.toLocaleString()}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); margin-left: 0.25rem;">數量:</span>
+                        <input type="number" class="quote-item-qty-input" data-part="${item.partId}" data-service="${item.serviceKey}" value="${item.qty}" min="0" style="width: 45px; padding: 1px 3px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.75rem; text-align: center; background: rgba(255,255,255,0.5); color: var(--text-primary);">
+                    </div>
                 </div>
                 <div class="quote-item-price-wrapper">
-                    <span class="quote-item-price">NT$ ${item.price.toLocaleString()}</span>
+                    <span class="quote-item-price" title="雙擊可修改單價">NT$ ${(item.price * item.qty).toLocaleString()}</span>
                     <button class="quote-item-delete" title="刪除項目">
                         <svg viewBox="0 0 24 24">
                             <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
@@ -670,31 +709,44 @@ function renderQuote() {
                 toggleServiceSelection(item.partId, item.serviceKey);
             });
 
+            // Qty input listener
+            const qtyInput = el.querySelector('.quote-item-qty-input');
+            if (qtyInput) {
+                qtyInput.addEventListener('change', (e) => {
+                    let val = parseInt(e.target.value);
+                    if (isNaN(val) || val < 0) val = 0;
+                    if (!state.customQuantities[item.partId]) state.customQuantities[item.partId] = {};
+                    state.customQuantities[item.partId][item.serviceKey] = val;
+                    renderQuote();
+                });
+            }
+
             container.appendChild(el);
-        // Enable price override via double‑click on the price span
-        const priceSpan = el.querySelector('.quote-item-price');
-        if (priceSpan) {
-          priceSpan.addEventListener('dblclick', () => {
-            const current = parseInt(priceSpan.textContent.replace(/[^0-9]/g, ''));
-            const input = document.createElement('input');
-            input.type = 'number';
-            input.min = '0';
-            input.value = current;
-            input.style.width = '80px';
-            const commit = () => {
-              const newVal = parseInt(input.value);
-              if (!isNaN(newVal)) {
-                if (!state.customPrices[item.partId]) state.customPrices[item.partId] = {};
-                state.customPrices[item.partId][item.serviceKey] = newVal;
-                renderQuote();
-              }
-            };
-            input.addEventListener('blur', commit);
-            input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
-            priceSpan.replaceWith(input);
-            input.focus();
-          });
-        }
+            
+            // Enable price override via double‑click on the price span
+            const priceSpan = el.querySelector('.quote-item-price');
+            if (priceSpan) {
+              priceSpan.addEventListener('dblclick', () => {
+                const current = item.price;
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.min = '0';
+                input.value = current;
+                input.style.width = '80px';
+                const commit = () => {
+                  const newVal = parseInt(input.value);
+                  if (!isNaN(newVal)) {
+                    if (!state.customPrices[item.partId]) state.customPrices[item.partId] = {};
+                    state.customPrices[item.partId][item.serviceKey] = newVal;
+                    renderQuote();
+                  }
+                };
+                input.addEventListener('blur', commit);
+                input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+                priceSpan.replaceWith(input);
+                input.focus();
+              });
+            }
         });
     }
 
@@ -728,7 +780,10 @@ function saveCurrentQuote() {
     Object.entries(state.activeSelections).forEach(([partId, serviceSet]) => {
         serviceSet.forEach(key => {
             const price = calculatePrice(partId, key);
-            if (price !== null) subtotal += price;
+            if (price !== null) {
+                const qty = getServiceQuantity(partId, key);
+                subtotal += price * qty;
+            }
         });
     });
     const discountAmount = Math.round(subtotal * (1 - (state.discount / 100)));
@@ -748,6 +803,8 @@ function saveCurrentQuote() {
         vehicleMethod: state.vehicleMethod,
         vehicleSize: state.vehicleSize,
         activeSelections: serializeSelections(state.activeSelections),
+        customPrices: JSON.parse(JSON.stringify(state.customPrices)),
+        customQuantities: JSON.parse(JSON.stringify(state.customQuantities)),
         discount: state.discount,
         subtotal: subtotal,
         discountAmount: discountAmount,
@@ -862,6 +919,8 @@ function loadQuoteRecord(record) {
         }
 
         state.activeSelections = deserializeSelections(record.activeSelections);
+        state.customPrices = record.customPrices || {};
+        state.customQuantities = record.customQuantities || {};
         closeConfigurator();
         populateQuickPartSelector();
         updateActiveSVGView();
@@ -883,15 +942,17 @@ function triggerPrint() {
         servicesSet.forEach(serviceKey => {
             const price = calculatePrice(partId, serviceKey);
             if (price === null) return;
-            subtotal += price;
+            const qty = getServiceQuantity(partId, serviceKey);
+            const partTotal = price * qty;
+            subtotal += partTotal;
 
             const serviceName = serviceCatalog[serviceKey].name;
             itemsRows.push(`
                 <tr>
                     <td><strong>${partId}</strong></td>
                     <td>${serviceName}</td>
-                    <td>1</td>
-                    <td style="text-align: right;">NT$ ${price.toLocaleString()}</td>
+                    <td>${qty}</td>
+                    <td style="text-align: right;">NT$ ${partTotal.toLocaleString()}</td>
                 </tr>
             `);
         });
