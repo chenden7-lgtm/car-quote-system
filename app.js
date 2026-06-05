@@ -985,9 +985,9 @@ function triggerPrint() {
     const dateStr = new Date().toLocaleString('zh-TW', { hour12: false, dateStyle: 'long', timeStyle: 'short' });
 
     printArea.innerHTML = `
-        <div class="print-invoice-header" style="display: flex; flex-direction: column; align-items: center; text-align: center; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 25px;">
-            <div style="font-size: 22pt; font-weight: bold; color: #1a365d; letter-spacing: 2px;">好室多膜 - 局部貼膜施工估價單</div>
-            <div style="font-size: 9.5pt; color: #4a5568; margin-top: 6px; display: flex; gap: 20px; justify-content: center;">
+        <div class="print-invoice-header" style="display: block; border-bottom: 2px solid #333; padding-bottom: 12px; margin-bottom: 25px;">
+            <div style="font-size: 22pt; font-weight: bold; color: #1a365d; letter-spacing: 1px; white-space: nowrap;">好室多膜 - 局部貼膜施工估價單</div>
+            <div style="font-size: 9.5pt; color: #4a5568; margin-top: 6px; display: flex; gap: 20px; align-items: center;">
                 <span>專業車身貼膜、犀牛皮防護、個性改色施工報價</span>
                 <span>•</span>
                 <span>報價日期: ${dateStr}</span>
