@@ -769,26 +769,32 @@ function triggerPrint() {
     subtotal += pkgPrice;
     
     itemsRows.push(`
-        <tr style="background-color: #f7fafc; font-weight: bold; border-bottom: 2px solid #cbd5e0;">
-            <td><strong>全車貼膜施工方案 (${getActiveSize()} 尺寸)</strong></td>
-            <td>${serviceCatalog[state.material].name}</td>
-            <td style="text-align: center;">1</td>
-            <td style="text-align: right; color: #1a365d; font-weight: bold;">NT$ ${pkgPrice.toLocaleString()}</td>
+        <tr style="background-color: #f8fafc; font-weight: bold;">
+            <td style="border-bottom: 1.5px solid #cbd5e0;"><strong>全車貼膜施工方案 (${getActiveSize()} 尺寸)</strong></td>
+            <td style="border-bottom: 1.5px solid #cbd5e0;">${serviceCatalog[state.material].name}</td>
+            <td style="text-align: center; border-bottom: 1.5px solid #cbd5e0;">1</td>
+            <td style="text-align: right; color: #1a365d; font-weight: bold; border-bottom: 1.5px solid #cbd5e0;">NT$ ${pkgPrice.toLocaleString()}</td>
         </tr>
     `);
     
     // 2. Included parts list under full-car package
     const includedParts = getIncludedPartsList();
-    includedParts.forEach(partKey => {
+    const activeIncludedParts = includedParts.filter(partKey => {
         const selection = state.activeSelections[partKey];
-        if (!selection || !selection.checked) return;
+        return selection && selection.checked;
+    });
+
+    activeIncludedParts.forEach((partKey, index) => {
+        const selection = state.activeSelections[partKey];
+        const isLast = index === activeIncludedParts.length - 1;
+        const borderStyle = isLast ? 'border-bottom: 1.5px solid #cbd5e0;' : 'border-bottom: none;';
         
         itemsRows.push(`
-            <tr style="font-size: 8.5pt; color: #4a5568;">
-                <td style="padding-left: 20px; color: #4a5568;">• ${partKey}</td>
-                <td style="color: #718096; font-size: 8.5pt;">${serviceCatalog[state.material].name}</td>
-                <td style="text-align: center; color: #718096;">${selection.qty}</td>
-                <td style="text-align: right; color: #718096; font-style: italic; font-size: 8.5pt;">已包含</td>
+            <tr style="font-size: 8.5pt; color: #4a5568; background-color: #fcfcfc;">
+                <td style="padding-left: 25px; color: #4a5568; ${borderStyle}">• ${partKey}</td>
+                <td style="color: #a0aec0; text-align: center; ${borderStyle}">-</td>
+                <td style="text-align: center; color: #718096; ${borderStyle}">${selection.qty}</td>
+                <td style="text-align: right; color: #718096; font-style: italic; font-size: 8.5pt; ${borderStyle}">已包含</td>
             </tr>
         `);
     });
@@ -799,11 +805,11 @@ function triggerPrint() {
         subtotal += addonPrice;
         
         itemsRows.push(`
-            <tr style="background-color: #f7fafc; font-weight: bold; border-bottom: 2px solid #cbd5e0; border-top: 1.5px solid #cbd5e0;">
-                <td><strong>加購：車頭加強犀牛皮防護</strong></td>
-                <td>國產 pixel8bit (加強部位：引擎蓋、前葉子版)</td>
-                <td style="text-align: center;">1</td>
-                <td style="text-align: right; color: #1a365d; font-weight: bold;">NT$ ${addonPrice.toLocaleString()}</td>
+            <tr style="background-color: #f8fafc; font-weight: bold;">
+                <td style="border-top: 1.5px solid #cbd5e0; border-bottom: 2px solid #cbd5e0;"><strong>加購：車頭加強犀牛皮防護</strong></td>
+                <td style="border-top: 1.5px solid #cbd5e0; border-bottom: 2px solid #cbd5e0;">國產 pixel8bit (加強部位：引擎蓋、前葉子版)</td>
+                <td style="text-align: center; border-top: 1.5px solid #cbd5e0; border-bottom: 2px solid #cbd5e0;">1</td>
+                <td style="text-align: right; color: #1a365d; font-weight: bold; border-top: 1.5px solid #cbd5e0; border-bottom: 2px solid #cbd5e0;">NT$ ${addonPrice.toLocaleString()}</td>
             </tr>
         `);
     }

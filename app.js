@@ -957,7 +957,7 @@ function triggerPrint() {
                 <tr>
                     <td><strong>${partId}</strong></td>
                     <td>${serviceName}</td>
-                    <td>${qty}</td>
+                    <td style="text-align: center;">${qty}</td>
                     <td style="text-align: right;">NT$ ${partTotal.toLocaleString()}</td>
                 </tr>
             `);
@@ -1030,10 +1030,10 @@ function triggerPrint() {
         <table class="print-table">
             <thead>
                 <tr>
-                    <th>施工部位</th>
-                    <th>貼膜項目</th>
-                    <th>數量</th>
-                    <th style="text-align: right;">金額 (NTD)</th>
+                    <th style="width: 40%; text-align: left;">施工部位</th>
+                    <th style="width: 35%; text-align: left;">貼膜項目</th>
+                    <th style="width: 10%; text-align: center;">數量</th>
+                    <th style="width: 15%; text-align: right;">金額 (NTD)</th>
                 </tr>
             </thead>
             <tbody>

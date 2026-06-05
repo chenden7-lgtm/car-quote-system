@@ -791,6 +791,8 @@ input:focus, select:focus, textarea:focus {
         color: black !important;
         font-size: 10pt;
         line-height: 1.4;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
     
     header, 
@@ -874,6 +876,7 @@ input:focus, select:focus, textarea:focus {
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 15px;
+        border: 1px solid #cbd5e0;
     }
     
     .print-table th {
