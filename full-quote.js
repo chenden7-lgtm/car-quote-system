@@ -769,25 +769,41 @@ function triggerPrint() {
     subtotal += pkgPrice;
     
     itemsRows.push(`
-        <tr>
-            <td><strong>全車貼膜施工 (${getActiveSize()} 尺寸)</strong></td>
+        <tr style="background-color: #f7fafc; font-weight: bold; border-bottom: 2px solid #cbd5e0;">
+            <td><strong>全車貼膜施工方案 (${getActiveSize()} 尺寸)</strong></td>
             <td>${serviceCatalog[state.material].name}</td>
-            <td>1</td>
-            <td style="text-align: right;">NT$ ${pkgPrice.toLocaleString()}</td>
+            <td style="text-align: center;">1</td>
+            <td style="text-align: right; color: #1a365d; font-weight: bold;">NT$ ${pkgPrice.toLocaleString()}</td>
         </tr>
     `);
     
-    // 2. Add-on Item (if checked and material is not pixel8bit)
+    // 2. Included parts list under full-car package
+    const includedParts = getIncludedPartsList();
+    includedParts.forEach(partKey => {
+        const selection = state.activeSelections[partKey];
+        if (!selection || !selection.checked) return;
+        
+        itemsRows.push(`
+            <tr style="font-size: 8.5pt; color: #4a5568;">
+                <td style="padding-left: 20px; color: #4a5568;">• ${partKey}</td>
+                <td style="color: #718096; font-size: 8.5pt;">${serviceCatalog[state.material].name}</td>
+                <td style="text-align: center; color: #718096;">${selection.qty}</td>
+                <td style="text-align: right; color: #718096; font-style: italic; font-size: 8.5pt;">已包含</td>
+            </tr>
+        `);
+    });
+    
+    // 3. Add-on Item (if checked and material is not pixel8bit)
     if (state.material !== 'pixel8bit' && state.addonPixel8bit) {
         const addonPrice = state.customAddonPrice !== null ? state.customAddonPrice : 18000;
         subtotal += addonPrice;
         
         itemsRows.push(`
-            <tr>
-                <td><strong>加購車頭加強犀牛皮防護</strong></td>
+            <tr style="background-color: #f7fafc; font-weight: bold; border-bottom: 2px solid #cbd5e0; border-top: 1.5px solid #cbd5e0;">
+                <td><strong>加購：車頭加強犀牛皮防護</strong></td>
                 <td>國產 pixel8bit (加強部位：引擎蓋、前葉子版)</td>
-                <td>1</td>
-                <td style="text-align: right;">NT$ ${addonPrice.toLocaleString()}</td>
+                <td style="text-align: center;">1</td>
+                <td style="text-align: right; color: #1a365d; font-weight: bold;">NT$ ${addonPrice.toLocaleString()}</td>
             </tr>
         `);
     }
@@ -805,11 +821,6 @@ function triggerPrint() {
         vehicleSpecName = `其他品牌 (${typeNames[state.vehicleType] || state.vehicleType}) - ${methodNames[state.vehicleMethod]} - 尺寸: ${state.vehicleSize}`;
     }
     
-    // Generate list of active wrapped parts
-    const includedParts = getIncludedPartsList();
-    const checkedParts = includedParts.filter(p => state.activeSelections[p] && state.activeSelections[p].checked);
-    const partsListStr = checkedParts.length > 0 ? checkedParts.join('、') : '無選取部位';
-
     const dateStr = new Date().toLocaleString('zh-TW', { hour12: false, dateStyle: 'long', timeStyle: 'short' });
 
     printArea.innerHTML = `
@@ -858,20 +869,16 @@ function triggerPrint() {
         <table class="print-table">
             <thead>
                 <tr>
-                    <th>施工項目</th>
-                    <th>貼膜方案材質</th>
-                    <th>數量</th>
-                    <th style="text-align: right;">金額 (NTD)</th>
+                    <th style="width: 40%; text-align: left;">施工部位 / 項目</th>
+                    <th style="width: 35%; text-align: left;">貼膜方案材質</th>
+                    <th style="width: 10%; text-align: center;">數量</th>
+                    <th style="width: 15%; text-align: right;">金額 (NTD)</th>
                 </tr>
             </thead>
             <tbody>
                 ${itemsRows.join('')}
             </tbody>
         </table>
-        
-        <div style="font-size: 8.5pt; color: #4a5568; margin: -5px 0 20px 0; border: 1px dashed #cbd5e0; padding: 8px 10px; border-radius: 4px; line-height: 1.45;">
-            <strong>方案施作範圍明細：</strong>${partsListStr}
-        </div>
 
         <div class="print-total-box">
             <div class="print-total-row">
