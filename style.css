@@ -102,7 +102,7 @@ header {
 main {
     flex: 1;
     display: grid;
-    grid-template-columns: 320px 1fr 380px;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 1.5rem;
     padding: 1.5rem;
     max-width: 1800px;
