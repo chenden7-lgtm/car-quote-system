@@ -821,13 +821,21 @@ function triggerPrint() {
             </div>
         </div>
 
-        <div style="margin-top: 40px; border-top: 1px dashed #ccc; padding-top: 20px;">
-            <div style="font-size: 10pt; font-weight: bold; color: #2d3748; margin-bottom: 5px;">備註說明：</div>
-            <ol style="font-size: 8.5pt; color: #718096; padding-left: 20px; line-height: 1.5;">
-                <li>本估價單報價自開立起 30 天內有效。</li>
-                <li>貼膜施工作業時間依部位多寡而定，實際進場施工作業以約定排程為準。</li>
-                <li>若施工部位原漆面已有深層刮傷、凹陷或漆面剝落，施工後可能存在收邊瑕疵，會於施作前與客戶確認。</li>
-            </ol>
+        <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="flex: 1; border-top: 1px dashed #ccc; padding-top: 15px; margin-right: 20px;">
+                <div style="font-size: 10pt; font-weight: bold; color: #2d3748; margin-bottom: 5px;">備註說明：</div>
+                <ol style="font-size: 8.5pt; color: #718096; padding-left: 20px; line-height: 1.5;">
+                    <li>本估價單報價自開立起 30 天內有效。</li>
+                    <li>貼膜施工作業時間依部位多寡而定，實際進場施工作業以約定排程為準。</li>
+                    <li>若施工部位原漆面已有深層刮傷、凹陷或漆面剝落，施工後可能存在收邊瑕疵，會於施作前與客戶確認。</li>
+                </ol>
+            </div>
+            <div style="width: 220px; text-align: center; border-top: 1px dashed #ccc; padding-top: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div style="font-size: 9.5pt; font-weight: bold; color: #2d3748; margin-bottom: 10px;">公司蓋章處：</div>
+                <div style="height: 90px; display: flex; align-items: center; justify-content: center;">
+                    <img src="company-stamp.jpg" style="max-height: 85px; max-width: 200px; mix-blend-mode: multiply; opacity: 0.9;" alt="公司蓋章">
+                </div>
+            </div>
         </div>
 
         <div class="print-footer">
