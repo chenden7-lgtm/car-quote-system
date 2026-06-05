@@ -787,6 +787,9 @@ input:focus, select:focus, textarea:focus {
     }
 
     body {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
         background: white !important;
         color: black !important;
         font-size: 10pt;
@@ -809,6 +812,15 @@ input:focus, select:focus, textarea:focus {
         padding: 0 !important;
         margin: 0 !important;
         max-width: 100% !important;
+    }
+    
+    .right-panel {
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
     }
     
     #print-area {
